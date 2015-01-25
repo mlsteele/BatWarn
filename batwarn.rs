@@ -3,11 +3,13 @@
 // Low Battery Warning Utility
 // Polls battery status and pops up warning when low.
 
+extern crate collections;
 use std::io::timer::sleep;
 use std::io::fs::File;
 use std::io::IoResult;
 use std::time::duration::Duration;
-use std::str::from_utf8;
+use collections::string::String;
+use std::io::process::{Command, ProcessOutput};
 
 static PERCENT_DANGER:     i32 = 20;
 static PERCENT_CRITICAL:   i32 = 8;
@@ -23,6 +25,7 @@ fn main() {
         read_battery_state().map(|s| {
             println!("{}", s);
         });
+        acpi_battery_state();
         let percent = 72;
         let charging = false;
 
@@ -47,5 +50,23 @@ fn read_battery_state() -> IoResult<String> {
     match File::open(&path) {
         Err(err) => Err(err),
         Ok(mut file) => file.read_to_string(),
+    }
+}
+
+fn acpi_battery_state() {
+    let mut cmd = Command::new("rustc");
+    cmd.arg("--version");
+    match cmd.output() {
+        Err(_) =>
+            println!("failed"),
+        Ok(ProcessOutput { status: exit, output: stdout, error: _ }) => {
+            match exit.success() {
+                false => println!("failed"),
+                true => {
+                    let stdout = String::from_utf8(stdout).unwrap();
+                    println!("acpi out {}", stdout);
+                },
+            }
+        },
     }
 }

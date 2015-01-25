@@ -8,7 +8,7 @@ extern crate regex;
 use std::io::IoResult;
 use std::io::timer::sleep;
 use std::io::fs::File;
-use std::io::process::{Command, ProcessOutput};
+use std::io::process::{Command, Process, ProcessOutput};
 use std::time::duration::Duration;
 use std::num::from_str_radix;
 use collections::string::String;
@@ -16,6 +16,7 @@ use regex::Regex;
 
 static PERCENT_DANGER:     i32 = 20;
 static PERCENT_CRITICAL:   i32 = 8;
+
 
 #[derive(Debug)]
 struct BatteryState {
@@ -27,9 +28,27 @@ fn main() {
     // let poll_delay: Duration = Duration::minutes(5);
     let poll_delay: Duration = Duration::seconds(1);
 
+    let mut nagproc: Option<Process> = None;
+
     loop {
         // Kill existing warnings
-        // TODO
+        nagproc = nagproc.and_then(|mut nagproc| {
+            match nagproc.signal_kill() {
+                Err(err) => {
+                    println!("ERROR: {}", err);
+                    Some(nagproc)
+                },
+                Ok(()) => None
+            }
+        });
+
+        println!("spawn");
+        match Command::new("i3-nagbar").arg("10").spawn() {
+            Err(err) =>
+                println!("ERROR: {}", err),
+            Ok(child) =>
+                nagproc = Some(child),
+        };
 
         // Check battery status
         match acpi_battery_state() {

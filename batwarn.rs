@@ -14,9 +14,8 @@ use std::num::from_str_radix;
 use collections::string::String;
 use regex::Regex;
 
-static PERCENT_DANGER:     i32 = 20;
+static PERCENT_DANGER:     i32 = 94;
 static PERCENT_CRITICAL:   i32 = 8;
-
 
 #[derive(Debug)]
 struct BatteryState {
@@ -42,14 +41,6 @@ fn main() {
             }
         });
 
-        println!("spawn");
-        match Command::new("i3-nagbar").arg("10").spawn() {
-            Err(err) =>
-                println!("ERROR: {}", err),
-            Ok(child) =>
-                nagproc = Some(child),
-        };
-
         // Check battery status
         match acpi_battery_state() {
             Err(err) => {
@@ -62,10 +53,26 @@ fn main() {
                     // Do nothing
                 } else if batstat.percent <= PERCENT_CRITICAL {
                     // Battery critically low.
-                    // TODO
+                    match Command::new("i3-nagbar").arg("10").spawn() {
+                        Err(err) =>
+                            println!("ERROR: {}", err),
+                        Ok(child) =>
+                            nagproc = Some(child),
+                    };
                 } else if batstat.percent <= PERCENT_DANGER {
                     // Battery low.
-                    // TODO
+                    let message = "WARNING: Battery low!";
+                    let child = Command::new("i3-nagbar")
+                        .arg("-t warning")
+                        .arg(format!("-m {}", message))
+                        .arg("10")
+                        .spawn();
+                    match child {
+                        Err(err) =>
+                            println!("ERROR: {}", err),
+                        Ok(child) =>
+                            nagproc = Some(child),
+                    };
                 } else {
                     // Battery discharging normally.
                 }

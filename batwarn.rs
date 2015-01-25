@@ -1,18 +1,25 @@
-#![allow(unstable)]
 // BatWarn
 // Low Battery Warning Utility
 // Polls battery status and pops up warning when low.
 
+#![allow(unstable)]
 extern crate collections;
+extern crate regex;
+use std::io::IoResult;
 use std::io::timer::sleep;
 use std::io::fs::File;
-use std::io::IoResult;
-use std::time::duration::Duration;
-use collections::string::String;
 use std::io::process::{Command, ProcessOutput};
+use std::time::duration::Duration;
+use std::num::from_str_radix;
+use collections::string::String;
+use regex::Regex;
 
 static PERCENT_DANGER:     i32 = 20;
 static PERCENT_CRITICAL:   i32 = 8;
+
+struct BatteryState {
+    p1: i32,
+}
 
 fn main() {
     // let poll_delay: Duration = Duration::minutes(5);
@@ -25,7 +32,9 @@ fn main() {
         read_battery_state().map(|s| {
             println!("{}", s);
         });
-        acpi_battery_state();
+        acpi_battery_state().map(|s| {
+            println!("{}", s);
+        });
         let percent = 72;
         let charging = false;
 
@@ -53,18 +62,37 @@ fn read_battery_state() -> IoResult<String> {
     }
 }
 
-fn acpi_battery_state() {
-    let mut cmd = Command::new("rustc");
-    cmd.arg("--version");
+fn acpi_battery_state() -> Result<String, String> {
+    // ACPI output format: "Battery #{number}: #{state}, #{percent}%..."
+    match acpi_battery_string() {
+        Err(err) => Err(err),
+        Ok(s) => {
+            let re = Regex::new(r"Battery \d+: (\w+), (\d+)%.*").unwrap();
+            match re.captures(s.as_slice()) {
+                None => Err(String::from_str("malformed acpi output")),
+                Some(captures) => {
+                    let state = captures.at(1).unwrap();
+                    // Full Discharging Charging
+                    let percent_str = captures.at(2).unwrap();
+                    let percent = from_str_radix::<i32>(percent_str, 10).unwrap();
+                    Ok(format!("state:{}({}) percent:{}", state, state=="Discharging", percent))
+                }
+            }
+        },
+    }
+}
+
+fn acpi_battery_string() -> Result<String, String> {
+    let mut cmd = Command::new("acpi");
+    cmd.arg("--battery");
     match cmd.output() {
-        Err(_) =>
-            println!("failed"),
+        Err(err) => Err(String::from_str(err.desc)),
         Ok(ProcessOutput { status: exit, output: stdout, error: _ }) => {
             match exit.success() {
-                false => println!("failed"),
+                false => Err(String::from_str("acpi returned with non-zero exit status")),
                 true => {
                     let stdout = String::from_utf8(stdout).unwrap();
-                    println!("acpi out {}", stdout);
+                    Ok(stdout)
                 },
             }
         },

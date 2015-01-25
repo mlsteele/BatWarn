@@ -5,7 +5,7 @@
 #![allow(unstable)]
 extern crate collections;
 extern crate regex;
-use std::io::IoResult;
+use std::io::{IoResult, IoError};
 use std::io::timer::sleep;
 use std::io::fs::File;
 use std::io::process::{Command, Process, ProcessOutput};
@@ -14,7 +14,7 @@ use std::num::from_str_radix;
 use collections::string::String;
 use regex::Regex;
 
-static PERCENT_DANGER:     i32 = 94;
+static PERCENT_DANGER:     i32 = 20;
 static PERCENT_CRITICAL:   i32 = 8;
 
 #[derive(Debug)]
@@ -53,7 +53,8 @@ fn main() {
                     // Do nothing
                 } else if batstat.percent <= PERCENT_CRITICAL {
                     // Battery critically low.
-                    match Command::new("i3-nagbar").arg("10").spawn() {
+                    let msg = format!("WARNING: Battery critically low!");
+                    match show_warning(msg, true) {
                         Err(err) =>
                             println!("ERROR: {}", err),
                         Ok(child) =>
@@ -61,13 +62,8 @@ fn main() {
                     };
                 } else if batstat.percent <= PERCENT_DANGER {
                     // Battery low.
-                    let message = "WARNING: Battery low!";
-                    let child = Command::new("i3-nagbar")
-                        .arg("-t warning")
-                        .arg(format!("-m {}", message))
-                        .arg("10")
-                        .spawn();
-                    match child {
+                    let msg = format!("WARNING: Battery low!");
+                    match show_warning(msg, false) {
                         Err(err) =>
                             println!("ERROR: {}", err),
                         Ok(child) =>
@@ -82,6 +78,18 @@ fn main() {
 
         sleep(poll_delay);
     }
+}
+
+fn show_warning(msg: String, critical: bool) -> Result<Process, IoError> {
+    let warning_level = match critical {
+        false => "warning",
+        true => "error",
+    };
+    Command::new("i3-nagbar")
+        .arg("-t")
+        .arg(warning_level)
+        .arg(format!("-m {}", msg))
+        .spawn()
 }
 
 // Parse output from `acpi --battery`

@@ -33,6 +33,7 @@ fn main() {
         nagproc = nagproc.and_then(|mut nagproc| {
             match nagproc.signal_kill() {
                 Err(err) => {
+                    // This can occur if the process was closed by the user.
                     println!("ERROR: {}", err);
                     Some(nagproc)
                 },

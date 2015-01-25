@@ -17,8 +17,10 @@ use regex::Regex;
 static PERCENT_DANGER:     i32 = 20;
 static PERCENT_CRITICAL:   i32 = 8;
 
+#[derive(Debug)]
 struct BatteryState {
-    p1: i32,
+    discharging: bool,
+    percent: i32,
 }
 
 fn main() {
@@ -26,43 +28,38 @@ fn main() {
     let poll_delay: Duration = Duration::seconds(1);
 
     loop {
-        println!("loop body");
+        // Kill existing warnings
+        // TODO
 
         // Check battery status
-        read_battery_state().map(|s| {
-            println!("{}", s);
-        });
-        acpi_battery_state().map(|s| {
-            println!("{}", s);
-        });
-        let percent = 72;
-        let charging = false;
+        match acpi_battery_state() {
+            Err(err) => {
+                println!("ERROR: {}", err)
+            },
+            Ok(batstat) => {
+                println!("{:?}", batstat);
 
-        // Kill existing warnings
+                if !batstat.discharging {
+                    // Do nothing
+                } else if batstat.percent <= PERCENT_CRITICAL {
+                    // Battery critically low.
+                    // TODO
+                } else if batstat.percent <= PERCENT_DANGER {
+                    // Battery low.
+                    // TODO
+                } else {
+                    // Battery discharging normally.
+                }
 
-        if charging {
-            // Do nothing
-        } else if percent <= PERCENT_CRITICAL {
-            // Battery critically low.
-        } else if percent <= PERCENT_DANGER {
-            // Battery low.
-        } else {
-            // Battery discharging normally.
+            },
         }
 
         sleep(poll_delay);
     }
 }
 
-fn read_battery_state() -> IoResult<String> {
-    let path = Path::new("/proc/acpi/battery/BAT0/state");
-    match File::open(&path) {
-        Err(err) => Err(err),
-        Ok(mut file) => file.read_to_string(),
-    }
-}
-
-fn acpi_battery_state() -> Result<String, String> {
+// Parse output from `acpi --battery`
+fn acpi_battery_state() -> Result<BatteryState, String> {
     // ACPI output format: "Battery #{number}: #{state}, #{percent}%..."
     match acpi_battery_string() {
         Err(err) => Err(err),
@@ -72,16 +69,18 @@ fn acpi_battery_state() -> Result<String, String> {
                 None => Err(String::from_str("malformed acpi output")),
                 Some(captures) => {
                     let state = captures.at(1).unwrap();
-                    // Full Discharging Charging
                     let percent_str = captures.at(2).unwrap();
                     let percent = from_str_radix::<i32>(percent_str, 10).unwrap();
-                    Ok(format!("state:{}({}) percent:{}", state, state=="Discharging", percent))
+                    Ok(BatteryState {
+                        discharging: state == "Discharging",
+                        percent: percent,})
                 }
             }
         },
     }
 }
 
+// Get output from `acpi --battery`
 fn acpi_battery_string() -> Result<String, String> {
     let mut cmd = Command::new("acpi");
     cmd.arg("--battery");
@@ -98,3 +97,14 @@ fn acpi_battery_string() -> Result<String, String> {
         },
     }
 }
+
+// Read battery state from /proc.
+#[allow(dead_code)]
+fn read_battery_state_string() -> IoResult<String> {
+    let path = Path::new("/proc/acpi/battery/BAT0/state");
+    match File::open(&path) {
+        Err(err) => Err(err),
+        Ok(mut file) => file.read_to_string(),
+    }
+}
+

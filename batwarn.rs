@@ -24,8 +24,7 @@ struct BatteryState {
 }
 
 fn main() {
-    // let poll_delay: Duration = Duration::minutes(5);
-    let poll_delay: Duration = Duration::seconds(1);
+    let poll_delay: Duration = Duration::minutes(5);
 
     let mut nagproc: Option<Process> = None;
 

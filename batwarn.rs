@@ -34,8 +34,9 @@ fn main() {
             match nagproc.signal_kill() {
                 Err(err) => {
                     // This can occur if the process was closed by the user.
-                    println!("ERROR: {}", err);
-                    Some(nagproc)
+                    println!("ERROR: kill: {}", err);
+                    // Assume the kill was successful
+                    None
                 },
                 Ok(()) => None
             }
@@ -44,7 +45,7 @@ fn main() {
         // Check battery status
         match acpi_battery_state() {
             Err(err) => {
-                println!("ERROR: {}", err)
+                println!("ERROR: getstatus: {}", err)
             },
             Ok(batstat) => {
                 println!("{:?}", batstat);
@@ -56,7 +57,7 @@ fn main() {
                     let msg = format!("WARNING: Battery critically low!");
                     match show_warning(msg, true) {
                         Err(err) =>
-                            println!("ERROR: {}", err),
+                            println!("ERROR: showcrit: {}", err),
                         Ok(child) =>
                             nagproc = Some(child),
                     };
@@ -65,7 +66,7 @@ fn main() {
                     let msg = format!("WARNING: Battery low!");
                     match show_warning(msg, false) {
                         Err(err) =>
-                            println!("ERROR: {}", err),
+                            println!("ERROR: showdang {}", err),
                         Ok(child) =>
                             nagproc = Some(child),
                     };

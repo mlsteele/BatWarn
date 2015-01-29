@@ -3,7 +3,7 @@
 all:
 	rustc batwarn.rs
 
-run:
+run: all
 	./batwarn
 
 pkill:

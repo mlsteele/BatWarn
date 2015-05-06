@@ -1,0 +1,10 @@
+[package]
+name = "batwarn"
+version = "0.1.0"
+authors = ["Miles Steele <miles@milessteele.com>"]
+
+[dependencies.regex]
+regex = "0.1.30"
+
+[dependencies.time]
+regex = "0.1.25"

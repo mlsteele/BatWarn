@@ -2,16 +2,13 @@
 // Low Battery Warning Utility
 // Polls battery status and pops up warning when low.
 
-#![allow(unstable)]
-extern crate collections;
+// extern crate collections;
 extern crate regex;
-use std::io::{IoResult, IoError};
-use std::io::timer::sleep;
-use std::io::fs::File;
-use std::io::process::{Command, Process, ProcessOutput};
-use std::time::duration::Duration;
-use std::num::from_str_radix;
-use collections::string::String;
+extern crate time;
+use std::thread::sleep_ms;
+use std::io;
+use std::process::{Command, Child, Output};
+use time::Duration;
 use regex::Regex;
 
 static PERCENT_DANGER:     i32 = 20;
@@ -26,12 +23,12 @@ struct BatteryState {
 fn main() {
     let poll_delay: Duration = Duration::minutes(5);
 
-    let mut nagproc: Option<Process> = None;
+    let mut nagproc: Option<Child> = None;
 
     loop {
         // Kill existing warnings
         nagproc = nagproc.and_then(|mut nagproc| {
-            match nagproc.signal_kill() {
+            match nagproc.kill() {
                 Err(err) => {
                     // This can occur if the process was closed by the user.
                     println!("ERROR: kill: {}", err);
@@ -77,11 +74,11 @@ fn main() {
             },
         }
 
-        sleep(poll_delay);
+        sleep_ms(poll_delay.num_milliseconds() as u32);
     }
 }
 
-fn show_warning(msg: String, critical: bool) -> Result<Process, IoError> {
+fn show_warning(msg: String, critical: bool) -> io::Result<Child> {
     let warning_level = match critical {
         false => "warning",
         true => "error",
@@ -100,12 +97,12 @@ fn acpi_battery_state() -> Result<BatteryState, String> {
         Err(err) => Err(err),
         Ok(s) => {
             let re = Regex::new(r"Battery \d+: (\w+), (\d+)%.*").unwrap();
-            match re.captures(s.as_slice()) {
-                None => Err(String::from_str("malformed acpi output")),
+            match re.captures(s.as_ref()) {
+                None => Err(String::from("malformed acpi output")),
                 Some(captures) => {
                     let state = captures.at(1).unwrap();
                     let percent_str = captures.at(2).unwrap();
-                    let percent = from_str_radix::<i32>(percent_str, 10).unwrap();
+                    let percent = percent_str.parse().unwrap();
                     Ok(BatteryState {
                         discharging: state == "Discharging",
                         percent: percent,})
@@ -120,10 +117,10 @@ fn acpi_battery_string() -> Result<String, String> {
     let mut cmd = Command::new("acpi");
     cmd.arg("--battery");
     match cmd.output() {
-        Err(err) => Err(String::from_str(err.desc)),
-        Ok(ProcessOutput { status: exit, output: stdout, error: _ }) => {
+        Err(_) => Err(String::from("Couldn't run acpi")),
+        Ok(Output { status: exit, stdout, stderr: _ }) => {
             match exit.success() {
-                false => Err(String::from_str("acpi returned with non-zero exit status")),
+                false => Err(String::from("acpi returned with non-zero exit status")),
                 true => {
                     let stdout = String::from_utf8(stdout).unwrap();
                     Ok(stdout)
@@ -134,12 +131,13 @@ fn acpi_battery_string() -> Result<String, String> {
 }
 
 // Read battery state from /proc.
+/*
 #[allow(dead_code)]
-fn read_battery_state_string() -> IoResult<String> {
+fn read_battery_state_string() -> io::Result<String> {
     let path = Path::new("/proc/acpi/battery/BAT0/state");
     match File::open(&path) {
         Err(err) => Err(err),
         Ok(mut file) => file.read_to_string(),
     }
 }
-
+*/

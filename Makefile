@@ -1,10 +1,10 @@
 .PHONY: all run pkill
 
 all:
-	rustc batwarn.rs
+	cargo build
 
-run: all
-	./batwarn
+run: all pkill
+	cargo run
 
 pkill:
-	pkill batwarn
+	-pkill batwarn
